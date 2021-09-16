@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -14,6 +15,9 @@ namespace UserService.Controllers
      * 
      * Authorize the controller by using attribute to the Controller
      */
+    [Route("api/[controller]")]
+    [ApiController]
+    [Authorize]
     public class UserController : ControllerBase
     {
         /*
@@ -22,9 +26,11 @@ namespace UserService.Controllers
         object using the new keyword
         */
         string userId = string.Empty;
+        IUserService _userService;
         public UserController(IUserService userService)
         {
-            
+            _userService = userService;
+
         }
 
         /* Implement HttpVerbs and its Functionality asynchronously*/
@@ -37,7 +43,31 @@ namespace UserService.Controllers
          * 2. Handle Custom Exception when expected userId not found
          * 3. Use HttpGet to get the user by userId
          */
+        [HttpGet]
+        public async Task<IActionResult> Get()
+        {
+            try
+            {
+                userId = HttpContext.User.Claims.FirstOrDefault(c => c.Type == "userId").Value.ToString();
+                if (userId != null)
+                {
+                    UserProfile user = await _userService.GetUser(userId);
+                    return Ok(user);
+                }
+                else
+                    return Unauthorized();
+                
+            }
+            catch (UserNotFoundException e)
+            {
+                return NotFound(e.Message);
+            }
+            catch (Exception e)
+            {
+                return StatusCode(500, e.Message);
+            }
 
+        }
         /*
         * Define a handler method which will create a specific UserProfile by reading the
         * Serialized object from request body and save the user details in a User table
@@ -50,7 +80,31 @@ namespace UserService.Controllers
         * 
         * use HTTP POST method to Add user Details.
         */
+        [HttpPost]
+        public async Task<IActionResult> Post(UserProfile user)
+        {
+            try
+            {
+                userId = HttpContext.User.Claims.FirstOrDefault(c => c.Type == "userId").Value.ToString();
+                if (userId != null && userId == user.UserId)
+                {
+                    user.UserId = userId;
+                    bool flag = await _userService.AddUser(user);
+                    return Created("", flag);
+                }
+                else
+                    return Unauthorized($"Your credentials doesn't match User Profile");
+            }
+            catch (UserAlreadyExistsException e)
+            {
+                return Conflict(e.Message);
+            }
+            catch (Exception e)
+            {
+                return StatusCode(500, e.Message);
+            }
 
+        }
 
         /*
        * Define a handler method which will update a specific user by reading the
@@ -62,5 +116,29 @@ namespace UserService.Controllers
        * 
        * use HTTP PUT method.
        */
+        [HttpPut]
+        public async Task<IActionResult> Put(UserProfile user)
+        {
+            try
+            {
+                userId = HttpContext.User.Claims.FirstOrDefault(c => c.Type == "userId").Value.ToString();
+                if (userId != null && userId==user.UserId)
+                {
+                    bool flag = await _userService.UpdateUser(userId, user);
+                    return Ok(flag);
+                }
+                else
+                    return Unauthorized($"You are not allowed to update {user.UserId} Profile");
+            }
+            catch (UserNotFoundException e)
+            {
+                return NotFound(e.Message);
+            }
+            catch (Exception e)
+            {
+                return StatusCode(500, e.Message);
+            }
+
+        }
     }
 }

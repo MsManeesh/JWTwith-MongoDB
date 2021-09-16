@@ -26,6 +26,23 @@ namespace ReminderService
         {
             this.ValidateToken(Configuration, services);
             services.AddControllers();
+            services.AddSingleton(new ReminderContext(Configuration));
+            services.AddScoped<IReminderRepository, ReminderRepository>();
+            services.AddScoped<IReminderService, Services.ReminderService>();
+            services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                .AddJwtBearer(op =>
+                {
+                    op.TokenValidationParameters = new TokenValidationParameters()
+                    {
+                        ValidateIssuer = true,
+                        ValidateAudience = true,
+                        ValidateIssuerSigningKey = true,
+                        ValidateLifetime = true,
+                        ValidIssuer = Configuration["Audience:Iss"],
+                        ValidAudience = Configuration["Audience:Auidence"],
+                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Configuration["Audience:Secret"]))
+                    };
+                });
             //register all dependencies here
             //Implement token validation logic
         }

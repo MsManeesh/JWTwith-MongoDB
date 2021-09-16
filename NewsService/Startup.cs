@@ -24,8 +24,25 @@ namespace NewsService
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddControllers();
+            services.AddSingleton(new NewsContext(Configuration));
+            services.AddScoped<INewsRepository, NewsRepository>();
+            services.AddScoped<INewsService, Services.NewsService>();
             //register all dependencies here
             //Implement token validation logic
+            services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                .AddJwtBearer(op =>
+                {
+                    op.TokenValidationParameters = new TokenValidationParameters()
+                    {
+                        ValidateIssuer = true,
+                        ValidateAudience = true,
+                        ValidateIssuerSigningKey = true,
+                        ValidateLifetime = true,
+                        ValidIssuer=Configuration["Audience:Iss"],
+                        ValidAudience=Configuration["Audience:Auidence"],
+                        IssuerSigningKey= new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Configuration["Audience:Secret"]))
+                    };
+                });
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -36,7 +53,9 @@ namespace NewsService
                 app.UseDeveloperExceptionPage();
             }
             app.UseRouting();
-             //Add extension method i.e Authentication and Authorization 
+            //Add extension method i.e Authentication and Authorization
+            app.UseAuthentication();
+            app.UseAuthorization();
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();

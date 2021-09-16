@@ -1,4 +1,6 @@
-﻿using System.Linq;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -12,16 +14,20 @@ namespace ReminderService.Controllers
     * the class with [ApiController] annotation and define the controller level route as per REST Api standard. 
     * and Authorize the Reminder Controller with Authorize atrribute
     */
+    [Route("api/[controller]")]
+    [ApiController]
+    [Authorize]
     public class ReminderController : ControllerBase
     {
         /*
         * ReminderService should  be injected through constructor injection. 
         * Please note that we should not create Reminderservice object using the new keyword
         */
-      
+        IReminderService _reminderService;
+        string userId = string.Empty;
         public ReminderController(IReminderService reminderService)
         {
-
+            _reminderService = reminderService;
         }
 
         /* Implement HttpVerbs and its Functionalities asynchronously*/
@@ -37,7 +43,31 @@ namespace ReminderService.Controllers
         * and also handle the custom exception for the same
         */
 
+        [HttpGet]
+        public async Task<IActionResult> Get()
+        {
+            try
+            {
+                userId = HttpContext.User.Claims.FirstOrDefault(c => c.Type == "userId").Value.ToString();
+                if (userId != null)
+                {
+                    List<ReminderSchedule> reminderSchedules = await _reminderService.GetReminders(userId);
+                    return Ok(reminderSchedules);
+                }
+                else
+                    return Unauthorized();
+                
+            }
+            catch (NoReminderFoundException e)
+            {
+                return NotFound(e.Message);
+            }
+            catch (Exception e)
+            {
+                return StatusCode(500, e.Message);
+            }
 
+        }
         /*
         * Define a handler method which will create a reminder by reading the
         * Serialized reminder object from request body and save the reminder in
@@ -49,7 +79,31 @@ namespace ReminderService.Controllers
         * This handler method should use HTTP POST
         * method".
         */
+        [HttpPost]
+        public async Task<IActionResult> Post(Reminder reminder)
+        {
+            try
+            {
+                userId = HttpContext.User.Claims.FirstOrDefault(c => c.Type == "userId").Value.ToString();
+                if (userId != null)
+                {
+                    bool flag = await _reminderService.CreateReminder(userId, reminder.Email, reminder.NewsReminders.FirstOrDefault());
+                    return Created("", flag);
+                }
+                else
+                    return Unauthorized();
+                
+            }
+            catch (ReminderAlreadyExistsException e)
+            {
+                return Conflict(e.Message);
+            }
+            catch (Exception e)
+            {
+                return StatusCode(500, e.Message);
+            }
 
+        }
         /*
         * Define a handler method which will delete a reminder from a database.
         * This handler method should return any one of the status messages basis on
@@ -58,7 +112,32 @@ namespace ReminderService.Controllers
         * 2. 404(NOT FOUND) - If the reminder with specified userId with newsId is  not found. 
         * This handler method should map to HTTP Delete.
         */
+        [HttpDelete]
+        //[Route("{newsId:int}")]
+        public async Task<IActionResult> Delete(int newsId)
+        {
+            try
+            {
+                userId = HttpContext.User.Claims.FirstOrDefault(c => c.Type == "userId").Value.ToString();
+                if (userId != null)
+                {
+                    bool flag = await _reminderService.DeleteReminder(userId, newsId);
+                    return Ok(flag);
+                }
+                else
+                    return Unauthorized();
+                
+            }
+            catch (NoReminderFoundException e)
+            {
+                return NotFound(e.Message);
+            }
+            catch (Exception e)
+            {
+                return StatusCode(500, e.Message);
+            }
 
+        }
         /*
          * Define a handler method (Put) which will update a reminder by userId,newsId and with Reminder Details
          * 
@@ -69,6 +148,30 @@ namespace ReminderService.Controllers
          * 
          * This handler method should be used to update the existing reminder details.
          */
-        
+        [HttpPut]
+        public async Task<IActionResult> Put(ReminderSchedule reminderSchedule)
+        {
+            try
+            {
+                userId = HttpContext.User.Claims.FirstOrDefault(c => c.Type == "userId").Value.ToString();
+                if (userId != null)
+                {
+                    bool flag = await _reminderService.UpdateReminder(userId, reminderSchedule);
+                    return Ok(flag);
+                }
+                else
+                    return Unauthorized();
+                
+            }
+            catch (NoReminderFoundException e)
+            {
+                return NotFound(e.Message);
+            }
+            catch (Exception e)
+            {
+                return StatusCode(500, e.Message);
+            }
+
+        }
     }
 }

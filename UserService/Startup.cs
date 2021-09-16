@@ -26,6 +26,23 @@ namespace UserService
             //register all dependencies here
             //Implement token validation logic
             services.AddControllers();
+            services.AddSingleton(new UserContext(Configuration));
+            services.AddScoped<IUserRepository, UserRepository>();
+            services.AddScoped<IUserService, Services.UserService>();
+            services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                .AddJwtBearer(op =>
+                {
+                    op.TokenValidationParameters = new TokenValidationParameters()
+                    {
+                        ValidateIssuer = true,
+                        ValidateAudience = true,
+                        ValidateIssuerSigningKey = true,
+                        ValidateLifetime = true,
+                        ValidIssuer = Configuration["Audience:Iss"],
+                        ValidAudience = Configuration["Audience:Auidence"],
+                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Configuration["Audience:Secret"]))
+                    };
+                });
         }
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
@@ -36,7 +53,8 @@ namespace UserService
             }
 
             app.UseRouting();
-            app.UseAuthentication().UseAuthorization();
+            app.UseAuthentication();
+            app.UseAuthorization();
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();
